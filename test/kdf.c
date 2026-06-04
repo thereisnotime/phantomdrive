@@ -108,7 +108,10 @@ void decrypt(const char* blob, uint8_t key[32]) {
 			unsigned char ctr[AES_BLOCK_SIZE] = {0};
 			unsigned char stream[AES_BLOCK_SIZE];
 
-			/* ECDC registers hold low counter word first; AES sees the 128-bit value big-endian. */
+			/* ECDC registers hold low counter word first; AES sees the 128-bit value big-endian.
+			 * TODO: firmware now mixes device UID into ctr[0] and ctr[2] (bytes 0-3 and 8-11).
+			 * Pass --uid <16 hex chars> and call u32be(ctr+0, uid[0]); u32be(ctr+8, uid[1])
+			 * before the lba/block words to match firmware behaviour. */
 			u32be(ctr + 8, lba);
 			u32be(ctr + 12, block);
 

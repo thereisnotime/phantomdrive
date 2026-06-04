@@ -10,6 +10,8 @@
 volatile uint8_t phantomdrive_state = STATE_LOCKED;
 static bool phantomdrive_unlock_pending = false;
 
+extern usb_descriptor_serial_number_t unique_id;
+
 __attribute__((aligned(16))) uint32_t aes_key[8] __attribute__((section(".DMADATA")));
 
 static uint8_t pending_pw[128];
@@ -125,10 +127,11 @@ void phantomdrive_poll(void)
 
 void phantomdrive_ecdc_set_sector_nonce(uint32_t sd_lba)
 {
+	const uint32_t *uid = (const uint32_t *)&unique_id;
 	uint32_t ctr[4];
-	ctr[0] = 0;
+	ctr[0] = uid[0];
 	ctr[1] = sd_lba;
-	ctr[2] = 0;
+	ctr[2] = uid[1];
 	ctr[3] = 0;
 	ECDC_SetCount((puint32_t)ctr);
 }
