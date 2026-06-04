@@ -187,3 +187,46 @@ void derive_key(const uint8_t *password, size_t pw_len, uint8_t key_out[32])
 		sha256_final(&ctx, key_out);
 	}
 }
+
+/*****************************************************************************
+ * HMAC-SHA256 (RFC 2104)
+ *****************************************************************************/
+
+#define HMAC_BLOCK_SIZE 64
+
+void hmac_sha256(const uint8_t *key, size_t key_len,
+                 const uint8_t *msg, size_t msg_len,
+                 uint8_t mac_out[32])
+{
+	uint8_t k_pad[HMAC_BLOCK_SIZE];
+	uint8_t inner[32];
+	sha256_ctx_t ctx;
+	size_t i;
+
+	if (key_len > HMAC_BLOCK_SIZE) {
+		sha256(key, key_len, k_pad);
+		memset(k_pad + 32, 0, HMAC_BLOCK_SIZE - 32);
+	} else {
+		memcpy(k_pad, key, key_len);
+		memset(k_pad + key_len, 0, HMAC_BLOCK_SIZE - key_len);
+	}
+
+	/* Inner: SHA256((k XOR ipad) || msg) */
+	sha256_init(&ctx);
+	for (i = 0; i < HMAC_BLOCK_SIZE; i++) k_pad[i] ^= 0x36;
+	sha256_update(&ctx, k_pad, HMAC_BLOCK_SIZE);
+	sha256_update(&ctx, msg, msg_len);
+	sha256_final(&ctx, inner);
+
+	/* Switch ipad to opad: XOR 0x36 back, then XOR 0x5c */
+	for (i = 0; i < HMAC_BLOCK_SIZE; i++) k_pad[i] ^= (0x36 ^ 0x5c);
+
+	/* Outer: SHA256((k XOR opad) || inner) */
+	sha256_init(&ctx);
+	sha256_update(&ctx, k_pad, HMAC_BLOCK_SIZE);
+	sha256_update(&ctx, inner, 32);
+	sha256_final(&ctx, mac_out);
+
+	memset(k_pad, 0, sizeof(k_pad));
+	memset(inner, 0, sizeof(inner));
+}

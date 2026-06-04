@@ -11,4 +11,9 @@ void sha256(const uint8_t *data, size_t len, uint8_t hash_out[32]);
  * key = SHA256(salt || password), then 1000x key = SHA256(key || password) */
 void derive_key(const uint8_t *password, size_t pw_len, uint8_t key_out[32]);
 
+/* HMAC-SHA256: RFC 2104 */
+void hmac_sha256(const uint8_t *key, size_t key_len,
+                 const uint8_t *msg, size_t msg_len,
+                 uint8_t mac_out[32]);
+
 #endif /* CRYPTO_H_ */
