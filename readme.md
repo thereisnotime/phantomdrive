@@ -1,6 +1,6 @@
 ![](img/Logo_white_big.png)
 
-Phantomdrive is open source encrypted USB drive with a stealth mechanism to hide its second partition. To decrypt it you must create a file called unlock.txt containing your password in the format `password:addpasswordhere`, this is used to derive a AES-256 key. The drive automatically unmounts itself, remounts the remaining disk and encrypts and decrypts in place. It uses CH569W SoC, which has USB3, SDIO and an AES hardware block. It is programmable over USB using the `wch-ch56x-isp` library.
+Phantomdrive is open source encrypted USB drive with a stealth mechanism to hide its second partition. To decrypt it you write a keyfile to the drive — the raw contents of the file are used to derive an AES-256 key. The drive automatically unmounts itself, remounts the remaining disk and encrypts and decrypts in place. It uses CH569W SoC, which has USB3, SDIO and an AES hardware block. It is programmable over USB using the `wch-ch56x-isp` library.
 
 ``` bash
 |-- ee             # Hardware files
@@ -49,9 +49,18 @@ make flash
 ```
 
 ## Unlocking Drive
+
+Generate a keyfile once and store it somewhere safe:
 ``` bash
-sudo echo "password:YourPasswordHere13245" > /mnt/unlock.txt
+dd if=/dev/urandom of=~/phantomdrive.key bs=64 count=1
 ```
+
+Copy it to the drive each time you want to unlock:
+``` bash
+sudo cp ~/phantomdrive.key /mnt/unlock.key
+```
+
+The entire file contents are used as raw key material. Using random bytes from `/dev/urandom` rather than a memorable password prevents dictionary attacks against the key derivation function.
 
 # Releasing the hardware
 ``` bash

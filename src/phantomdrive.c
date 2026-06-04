@@ -14,8 +14,6 @@ __attribute__((aligned(16))) uint32_t aes_key[8] __attribute__((section(".DMADAT
 
 static uint8_t pending_pw[128];
 static size_t pending_pw_len;
-static bool pw_partial;
-
 void phantomdrive_init(void)
 {
 	R16_ECEC_CTRL = 0;
@@ -60,59 +58,18 @@ void phantomdrive_snoop_write(uint8_t *buf, uint32_t len)
 {
 	if (phantomdrive_state != STATE_LOCKED || phantomdrive_unlock_pending)
 		return;
-
-	/* Continue appending password from previous buffer */
-	if (pw_partial) {
-		size_t end = 0;
-		while (end < len && pending_pw_len < sizeof(pending_pw) &&
-		       buf[end] != '\n' && buf[end] != '\r' && buf[end] != '\0')
-			pending_pw[pending_pw_len++] = buf[end++];
-
-		memset(buf, 0, end);
-
-		if (end < len || pending_pw_len >= sizeof(pending_pw)) {
-			pw_partial = false;
-			if (pending_pw_len > 0) {
-				phantomdrive_unlock_pending = true;
-				log_printf("phantomdrive: password snooped (%u bytes)\r\n",
-				           (unsigned)pending_pw_len);
-			}
-		}
+	if (len == 0)
 		return;
-	}
 
-	const char *prefix = "password:";
-	const size_t prefix_len = 9;
-	uint32_t i;
+	size_t to_copy = len;
+	if (to_copy > sizeof(pending_pw))
+		to_copy = sizeof(pending_pw);
 
-	for (i = 0; i + prefix_len <= len; i++) {
-		if (buf[i] != 'p')
-			continue;
-		if (memcmp(buf + i, prefix, prefix_len) != 0)
-			continue;
-
-		size_t pw_start = i + prefix_len;
-		size_t pw_end = pw_start;
-		while (pw_end < len && (pw_end - pw_start) < sizeof(pending_pw) &&
-		       buf[pw_end] != '\n' && buf[pw_end] != '\r' && buf[pw_end] != '\0')
-			pw_end++;
-
-		size_t pw_len = pw_end - pw_start;
-		memcpy(pending_pw, buf + pw_start, pw_len);
-		pending_pw_len = pw_len;
-		memset(buf + i, 0, pw_end - i);
-
-		if (pw_end < len || pw_len >= sizeof(pending_pw)) {
-			if (pw_len > 0) {
-				phantomdrive_unlock_pending = true;
-				log_printf("phantomdrive: password snooped (%u bytes)\r\n",
-				           (unsigned)pw_len);
-			}
-		} else {
-			pw_partial = true;
-		}
-		return;
-	}
+	memcpy(pending_pw, buf, to_copy);
+	pending_pw_len = to_copy;
+	phantomdrive_unlock_pending = true;
+	log_printf("phantomdrive: keyfile snooped (%u bytes)\r\n",
+	           (unsigned)pending_pw_len);
 }
 
 void phantomdrive_poll(void)
