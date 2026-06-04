@@ -132,30 +132,46 @@ void decrypt(const char* blob, uint8_t key[32]) {
 	free(buf);
 }
 
+static int parse_uid_hex(const char *hex, uint8_t uid[8])
+{
+	if (strlen(hex) != 16) return -1;
+	for (int i = 0; i < 8; i++) {
+		unsigned int byte;
+		if (sscanf(hex + i * 2, "%02x", &byte) != 1) return -1;
+		uid[i] = (uint8_t)byte;
+	}
+	return 0;
+}
+
 int main(int argc, char *argv[]) {
-	// ad56a659e353bee798b7c769ff037ad1c1d0f153ccaf87a48af45a1e82637de0
+	/* Usage: ./kdf <device> <uid_hex>
+	 * uid_hex: 16 hex chars (8 bytes) — read from USB serial number descriptor
+	 * before the drive re-enumerates, e.g. with: lsusb -v | grep iSerial */
     const uint8_t password[] = "pineapple";
 	uint8_t key_bytes[KEY_SIZE];
+	uint8_t uid[8] = {0};
 
-	if(argc < 2) {
-		printf("Please point to block device ie: ./kdf /dev/sdX\n");
+	if (argc < 3) {
+		printf("Usage: ./kdf <device> <uid_hex>\n");
+		printf("  uid_hex: 16 hex chars from USB serial number (iSerial)\n");
+		printf("  Example: ./kdf /dev/sdX 0102030405060708\n");
 		return 1;
-	} else {
-		printf("Using block device: %s \n", argv[1]);
 	}
 
-	// Function from the firwmare
-	derive_key(password, strlen((const char *)password), key_bytes);
+	printf("Using block device: %s\n", argv[1]);
+
+	if (parse_uid_hex(argv[2], uid) != 0) {
+		fprintf(stderr, "uid_hex must be exactly 16 hex characters\n");
+		return 1;
+	}
+
+	derive_key(password, strlen((const char *)password), uid, sizeof(uid), key_bytes);
 
 	printf("Key: ");
-	for(int i = 0; i < KEY_SIZE ; i++) {
-        printf("%02x", key_bytes[i]);
-	};
-
+	for (int i = 0; i < KEY_SIZE; i++)
+		printf("%02x", key_bytes[i]);
 	printf("\n");
 
-	// First we use the kdf to generate our key
-	// Then we use this key to AES decrypt out disk
 	decrypt(argv[1], key_bytes);
 
 	return 0;

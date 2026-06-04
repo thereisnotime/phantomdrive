@@ -10,6 +10,8 @@
 volatile uint8_t phantomdrive_state = STATE_LOCKED;
 static bool phantomdrive_unlock_pending = false;
 
+extern usb_descriptor_serial_number_t unique_id;
+
 __attribute__((aligned(16))) uint32_t aes_key[8] __attribute__((section(".DMADATA")));
 
 static uint8_t pending_pw[128];
@@ -31,7 +33,9 @@ static void phantomdrive_unlock(void)
 	log_printf("phantomdrive: deriving key (%u bytes)...\r\n", (unsigned)pending_pw_len);
 
 	uint8_t key_bytes[32];
-	derive_key(pending_pw, pending_pw_len, key_bytes);
+	derive_key(pending_pw, pending_pw_len,
+	           (const uint8_t *)&unique_id, sizeof(unique_id),
+	           key_bytes);
 	memcpy(aes_key, key_bytes, 32);
 	memset(key_bytes, 0, sizeof(key_bytes));
 	memset(pending_pw, 0, sizeof(pending_pw));
